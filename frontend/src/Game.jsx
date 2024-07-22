@@ -13,7 +13,7 @@ const Game = () => {
         default: "arcade",
         arcade: {
           gravity: { y: 0 },
-          debug: false,
+          debug: false, // 디버그 모드 비활성화
         },
       },
       scene: {
@@ -36,10 +36,10 @@ const Game = () => {
     let background;
 
     function preload() {
-      this.load.image("background", "public/background.png"); // 배경 이미지 경로
-      this.load.image("player", "public/player.png"); // 플레이어 이미지 경로
-      this.load.image("bullet", "public/bullet.png"); // 총알 이미지 경로
-      this.load.image("enemy", "public/enemy.png"); // 적 이미지 경로
+      this.load.image("background", "/background.png"); // 배경 이미지 경로
+      this.load.image("player", "/player.png"); // 플레이어 이미지 경로
+      this.load.image("bullet", "/bullet.png"); // 총알 이미지 경로
+      this.load.image("enemyy", "/enemy.png"); // 적 이미지 경로
     }
 
     function create() {
@@ -84,6 +84,7 @@ const Game = () => {
         }
       });
 
+      // 적을 1000ms마다 생성하는 이벤트 추가
       this.time.addEvent({
         delay: 1000,
         callback: createEnemy,
@@ -112,6 +113,13 @@ const Game = () => {
       } else {
         player.setVelocityY(0);
       }
+
+      // 적을 아래로 이동시키기 위해 update에서 처리
+      enemies.children.iterate((enemy) => {
+        if (enemy && enemy.active) {
+          enemy.setVelocityY(enemySpeed);
+        }
+      });
     }
 
     function fireBullet() {
@@ -133,20 +141,18 @@ const Game = () => {
 
     function createEnemy() {
       const x = Phaser.Math.Between(50, 550);
-      const enemy = enemies.create(x, 0, "enemy");
+      const enemy = enemies.create(x, 0, "enemyy");
 
       if (enemy) {
         enemy.setVelocityY(enemySpeed);
         enemy.setCollideWorldBounds(true);
         enemy.body.onWorldBounds = true;
-        console.log("Enemy created at x:", x);
       }
     }
 
     function destroyEnemy(bullet, enemy) {
       bullet.disableBody(true, true);
       enemy.disableBody(true, true);
-      console.log("Enemy destroyed");
     }
 
     return () => {
