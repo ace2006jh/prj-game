@@ -30,9 +30,13 @@ const Game = () => {
     let cursors;
     let bullets;
     let enemies;
+    let specialEnemies;
+    let enemyBullets;
     let lastFired = 0;
     const fireRate = 100;
     const enemySpeed = 100;
+    const specialEnemySpeed = 100;
+    const specialEnemyHealth = 10;
     let background;
 
     function preload() {
@@ -40,6 +44,8 @@ const Game = () => {
       this.load.image("player", "/player.png"); // 플레이어 이미지 경로
       this.load.image("bullet", "/bullet.png"); // 총알 이미지 경로
       this.load.image("enemyy", "/enemy.png"); // 적 이미지 경로
+      this.load.image("specialEnemy", "/specialEnemy.png"); // 새로운 적 이미지 경로
+      this.load.image("enemyBullet", "/enemyBullet.png"); // 적의 탄환 이미지 경로
     }
 
     function create() {
@@ -69,30 +75,74 @@ const Game = () => {
       });
 
       enemies = this.physics.add.group({
-        defaultKey: "enemy",
+        defaultKey: "enemyy",
         maxSize: 20,
         classType: Phaser.Physics.Arcade.Image,
         runChildUpdate: true,
+      });
+
+      specialEnemies = this.physics.add.group({
+        defaultKey: "specialEnemy",
+        maxSize: 5,
+        classType: Phaser.Physics.Arcade.Image,
+        runChildUpdate: true,
+      });
+
+      enemyBullets = this.physics.add.group({
+        defaultKey: "enemyBullet",
+        maxSize: 40,
+        classType: Phaser.Physics.Arcade.Image,
+        runChildUpdate: true,
+      });
+
+      enemyBullets.createMultiple({
+        key: "enemyBullet",
+        quantity: 20,
+        active: false,
+        visible: false,
+        classType: Phaser.Physics.Arcade.Image,
       });
 
       this.physics.world.on("worldbounds", (body) => {
         if (body.gameObject && body.gameObject.texture.key === "bullet") {
           body.gameObject.disableBody(true, true);
         }
-        if (body.gameObject && body.gameObject.texture.key === "enemy") {
+        if (body.gameObject && body.gameObject.texture.key === "enemyy") {
+          body.gameObject.disableBody(true, true);
+        }
+        if (body.gameObject && body.gameObject.texture.key === "specialEnemy") {
+          body.gameObject.disableBody(true, true);
+        }
+        if (body.gameObject && body.gameObject.texture.key === "enemyBullet") {
           body.gameObject.disableBody(true, true);
         }
       });
 
       // 적을 1000ms마다 생성하는 이벤트 추가
       this.time.addEvent({
-        delay: 1000,
+        delay: 1500,
         callback: createEnemy,
         callbackScope: this,
         loop: true,
       });
 
+      // 새로운 적을 3000ms마다 생성하는 이벤트 추가
+      this.time.addEvent({
+        delay: 8000,
+        callback: createSpecialEnemy,
+        callbackScope: this,
+        loop: true,
+      });
+
       this.physics.add.collider(bullets, enemies, destroyEnemy, null, this);
+      this.physics.add.collider(
+        bullets,
+        specialEnemies,
+        damageSpecialEnemy,
+        null,
+        this,
+      );
+      this.physics.add.collider(player, enemyBullets, playerHit, null, this);
     }
 
     function update(time, delta) {
@@ -120,6 +170,21 @@ const Game = () => {
           enemy.setVelocityY(enemySpeed);
         }
       });
+
+      // 특수 적의 이동과 공격 처리
+      specialEnemies.children.iterate((specialEnemy) => {
+        if (specialEnemy && specialEnemy.active) {
+          if (specialEnemy.y >= 260) {
+            specialEnemy.setVelocityY(0);
+            if (time > specialEnemy.lastFired + 1000) {
+              fireEnemyBullet(specialEnemy);
+              specialEnemy.lastFired = time;
+            }
+          } else {
+            specialEnemy.setVelocityY(specialEnemySpeed);
+          }
+        }
+      });
     }
 
     function fireBullet() {
@@ -141,7 +206,7 @@ const Game = () => {
 
     function createEnemy() {
       const x = Phaser.Math.Between(50, 550);
-      const enemy = enemies.create(x, 0, "enemyy");
+      const enemy = enemies.create(x, 50, "enemyy");
 
       if (enemy) {
         enemy.setVelocityY(enemySpeed);
@@ -150,9 +215,45 @@ const Game = () => {
       }
     }
 
+    function createSpecialEnemy() {
+      const x = Phaser.Math.Between(50, 550);
+      const specialEnemy = specialEnemies.create(x, 50, "specialEnemy");
+
+      if (specialEnemy) {
+        specialEnemy.health = specialEnemyHealth;
+        specialEnemy.lastFired = 0;
+        specialEnemy.setVelocityY(specialEnemySpeed);
+        specialEnemy.setCollideWorldBounds(true);
+        specialEnemy.body.onWorldBounds = true;
+      }
+    }
+
+    function fireEnemyBullet(enemy) {
+      const bullet = enemyBullets.getFirstDead(false);
+      if (bullet) {
+        bullet.enableBody(true, enemy.x, enemy.y + 20, true, true);
+        bullet.setVelocityY(300);
+        bullet.setCollideWorldBounds(true);
+        bullet.body.onWorldBounds = true;
+      }
+    }
+
+    function damageSpecialEnemy(bullet, specialEnemy) {
+      bullet.disableBody(true, true);
+      specialEnemy.health -= 1;
+      if (specialEnemy.health <= 0) {
+        specialEnemy.disableBody(true, true);
+      }
+    }
+
     function destroyEnemy(bullet, enemy) {
       bullet.disableBody(true, true);
       enemy.disableBody(true, true);
+    }
+
+    function playerHit(player, bullet) {
+      bullet.disableBody(true, true);
+      // 플레이어가 적의 탄환에 맞았을 때의 처리 로직 추가
     }
 
     return () => {
