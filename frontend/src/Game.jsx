@@ -45,7 +45,7 @@ const Game = () => {
       this.load.image("bullet", "/bullet.png"); // 총알 이미지 경로
       this.load.image("enemyy", "/enemy.png"); // 적 이미지 경로
       this.load.image("specialEnemy", "/specialEnemy.png"); // 새로운 적 이미지 경로
-      this.load.image("enemyBul", "/enemyBullet.png"); // 적의 탄환 이미지 경로
+      this.load.image("enemyBullet", "/enemyBullet.png"); // 적의 탄환 이미지 경로
     }
 
     function create() {
@@ -75,14 +75,14 @@ const Game = () => {
       });
 
       enemies = this.physics.add.group({
-        defaultKey: "enemy",
+        defaultKey: "enemyy",
         maxSize: 20,
         classType: Phaser.Physics.Arcade.Image,
         runChildUpdate: true,
       });
 
       specialEnemies = this.physics.add.group({
-        defaultKey: "specialEne",
+        defaultKey: "specialEnemy",
         maxSize: 5,
         classType: Phaser.Physics.Arcade.Image,
         runChildUpdate: true,
@@ -96,7 +96,7 @@ const Game = () => {
       });
 
       enemyBullets.createMultiple({
-        key: "enemyBul",
+        key: "enemyBullet",
         quantity: 20,
         active: false,
         visible: false,
@@ -107,10 +107,10 @@ const Game = () => {
         if (body.gameObject && body.gameObject.texture.key === "bullet") {
           body.gameObject.disableBody(true, true);
         }
-        if (body.gameObject && body.gameObject.texture.key === "enemy") {
+        if (body.gameObject && body.gameObject.texture.key === "enemyy") {
           body.gameObject.disableBody(true, true);
         }
-        if (body.gameObject && body.gameObject.texture.key === "specialEne") {
+        if (body.gameObject && body.gameObject.texture.key === "specialEnemy") {
           body.gameObject.disableBody(true, true);
         }
         if (body.gameObject && body.gameObject.texture.key === "enemyBullet") {
@@ -120,7 +120,7 @@ const Game = () => {
 
       // 적을 1000ms마다 생성하는 이벤트 추가
       this.time.addEvent({
-        delay: 1000,
+        delay: 1500,
         callback: createEnemy,
         callbackScope: this,
         loop: true,
@@ -128,7 +128,7 @@ const Game = () => {
 
       // 새로운 적을 3000ms마다 생성하는 이벤트 추가
       this.time.addEvent({
-        delay: 3000,
+        delay: 8000,
         callback: createSpecialEnemy,
         callbackScope: this,
         loop: true,
@@ -206,7 +206,7 @@ const Game = () => {
 
     function createEnemy() {
       const x = Phaser.Math.Between(50, 550);
-      const enemy = enemies.create(x, 0, "enemyy");
+      const enemy = enemies.create(x, 50, "enemyy");
 
       if (enemy) {
         enemy.setVelocityY(enemySpeed);
@@ -217,7 +217,7 @@ const Game = () => {
 
     function createSpecialEnemy() {
       const x = Phaser.Math.Between(50, 550);
-      const specialEnemy = specialEnemies.create(x, 0, "specialEnemy");
+      const specialEnemy = specialEnemies.create(x, 50, "specialEnemy");
 
       if (specialEnemy) {
         specialEnemy.health = specialEnemyHealth;
