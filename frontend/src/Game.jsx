@@ -32,11 +32,17 @@ const Game = () => {
     let enemies;
     let specialEnemies;
     let enemyBullets;
+    let bossBullets;
     let lastFired = 0;
+    let boss;
+
     const fireRate = 100;
     const enemySpeed = 100;
     const specialEnemySpeed = 100;
     const specialEnemyHealth = 10;
+    const BossHealth = 24;
+    const bossBulletSpeed = 200;
+    const bossFireRate = 500; // 보스 총알 발사 주기 (ms)
     let background;
 
     function preload() {
@@ -46,6 +52,12 @@ const Game = () => {
       this.load.image("enemyy", "/enemy.png"); // 적 이미지 경로
       this.load.image("specialEnemy", "/specialEnemy.png"); // 새로운 적 이미지 경로
       this.load.image("enemyBullet", "/enemyBullet.png"); // 적의 탄환 이미지 경로
+      this.load.image("Boss", "/boss.png"); // 보스 이미지 경로
+      this.load.image("bossBullet", "/bossBullet.png"); // 보스의 탄환 이미지 경로
+      this.load.spritesheet("bossExplosion", "/bossExplosion.png", {
+        frameWidth: 128,
+        frameHeight: 128,
+      }); // 보스 파괴 애니메이션 스프라이트 시트
     }
 
     function create() {
@@ -103,17 +115,23 @@ const Game = () => {
         classType: Phaser.Physics.Arcade.Image,
       });
 
+      bossBullets = this.physics.add.group({
+        defaultKey: "bossBullet",
+        maxSize: 10,
+        classType: Phaser.Physics.Arcade.Image,
+        runChildUpdate: true,
+      });
+
+      bossBullets.createMultiple({
+        key: "enemyBullet",
+        quantity: 10,
+        active: false,
+        visible: false,
+        classType: Phaser.Physics.Arcade.Image,
+      });
+
       this.physics.world.on("worldbounds", (body) => {
-        if (body.gameObject && body.gameObject.texture.key === "bullet") {
-          body.gameObject.disableBody(true, true);
-        }
-        if (body.gameObject && body.gameObject.texture.key === "enemyy") {
-          body.gameObject.disableBody(true, true);
-        }
-        if (body.gameObject && body.gameObject.texture.key === "specialEnemy") {
-          body.gameObject.disableBody(true, true);
-        }
-        if (body.gameObject && body.gameObject.texture.key === "enemyBullet") {
+        if (body.gameObject) {
           body.gameObject.disableBody(true, true);
         }
       });
@@ -124,6 +142,13 @@ const Game = () => {
         callback: createEnemy,
         callbackScope: this,
         loop: true,
+      });
+
+      // 보스 생성
+      this.time.addEvent({
+        delay: 20000,
+        callback: createBoss,
+        callbackScope: this,
       });
 
       // 새로운 적을 3000ms마다 생성하는 이벤트 추가
@@ -143,6 +168,19 @@ const Game = () => {
         this,
       );
       this.physics.add.collider(player, enemyBullets, playerHit, null, this);
+      this.physics.add.collider(player, bossBullets, playerHit, null, this);
+      this.physics.add.collider(bullets, boss, damageBoss, null, this);
+
+      this.anims.create({
+        key: "bossExplosion",
+        frames: this.anims.generateFrameNumbers("bossExplosion", {
+          start: 0,
+          end: 9,
+        }),
+        frameRate: 16,
+        repeat: 0,
+        hideOnComplete: true,
+      });
     }
 
     function update(time, delta) {
@@ -215,6 +253,27 @@ const Game = () => {
       }
     }
 
+    function createBoss() {
+      boss = this.physics.add.sprite(300, 100, "Boss");
+      specialEnemies.add(boss); // 보스를 specialEnemies 그룹에 추가
+
+      if (boss) {
+        boss.health = BossHealth;
+        boss.lastFired = 0;
+        boss.setVelocityY(specialEnemySpeed);
+        boss.setCollideWorldBounds(true);
+        boss.body.onWorldBounds = true;
+
+        // 보스가 주기적으로 총알을 발사하도록 설정
+        boss.fireTimer = this.time.addEvent({
+          delay: bossFireRate, // 총알 발사 주기를 짧게 설정
+          callback: () => fireBossBullet(boss),
+          callbackScope: this,
+          loop: true,
+        });
+      }
+    }
+
     function createSpecialEnemy() {
       const x = Phaser.Math.Between(50, 550);
       const specialEnemy = specialEnemies.create(x, 50, "specialEnemy");
@@ -238,11 +297,51 @@ const Game = () => {
       }
     }
 
+    function fireBossBullet(boss) {
+      if (!boss.active) return; // 보스가 활성 상태가 아니면 발사 중지
+
+      const bullet = bossBullets.getFirstDead(false);
+      if (bullet) {
+        bullet.enableBody(true, boss.x, boss.y + 20, true, true);
+
+        // 플레이어와 보스의 위치를 기반으로 각도 계산
+        const angle = Phaser.Math.Angle.Between(
+          boss.x,
+          boss.y,
+          player.x,
+          player.y,
+        );
+
+        // 각도를 기반으로 속도 설정
+        bullet.setVelocity(
+          Math.cos(angle) * bossBulletSpeed,
+          Math.sin(angle) * bossBulletSpeed,
+        );
+
+        bullet.setCollideWorldBounds(true);
+        bullet.body.onWorldBounds = true;
+      }
+    }
+
     function damageSpecialEnemy(bullet, specialEnemy) {
       bullet.disableBody(true, true);
       specialEnemy.health -= 1;
       if (specialEnemy.health <= 0) {
         specialEnemy.disableBody(true, true);
+      }
+    }
+
+    function damageBoss(bullet, boss) {
+      bullet.disableBody(true, true);
+      boss.health -= 1;
+      if (boss.health <= 0) {
+        boss.disableBody(true, true);
+        boss.fireTimer.remove(); // 보스가 파괴되면 총알 발사 타이머 제거
+
+        // 보스 파괴 애니메이션 실행
+        const explosion = this.add
+          .sprite(boss.x, boss.y, "bossExplosion")
+          .play("bossExplosion");
       }
     }
 
