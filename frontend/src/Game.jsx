@@ -57,7 +57,7 @@ const Game = () => {
     const BBossSpeed = 50;
     const specialEnemyHealth = 6;
     const BossHealth = 18;
-    const BBossHealth = 40;
+    const BBossHealth = 65;
     const bossBulletSpeed = 200;
     const bossFireRate = 500;
     let background;
@@ -81,6 +81,10 @@ const Game = () => {
       this.load.spritesheet("bossExplosion", "/bossExplosion.png", {
         frameWidth: 128,
         frameHeight: 128,
+      });
+      this.load.spritesheet("BBossExplosion", "/BBossExplosion.png", {
+        frameWidth: 256,
+        frameHeight: 256,
       });
       this.load.spritesheet("laserWarn", "/warn.png", {
         frameWidth: 600,
@@ -239,6 +243,17 @@ const Game = () => {
         frames: this.anims.generateFrameNumbers("bossExplosion", {
           start: 0,
           end: 9,
+        }),
+        frameRate: 16,
+        repeat: 0,
+        hideOnComplete: true,
+      });
+
+      this.anims.create({
+        key: "BBossExplosion",
+        frames: this.anims.generateFrameNumbers("BBossExplosion", {
+          start: 0,
+          end: 25,
         }),
         frameRate: 16,
         repeat: 0,
@@ -596,8 +611,8 @@ const Game = () => {
         updateScore(2500);
 
         const explosion = this.add
-          .sprite(BBoss1.x, BBoss1.y, "bossExplosion")
-          .play("bossExplosion");
+          .sprite(BBoss1.x, BBoss1.y, "BBossExplosion")
+          .play("BBossExplosion");
       }
     }
 
