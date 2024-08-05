@@ -40,21 +40,24 @@ const Game = () => {
     let lastFired = 0;
     let boss;
     let BBoss;
+    let BBoss1;
     let lives;
     let livesGroup;
     let playerImmune;
     let playerExploding;
     let score = 0;
     let scoreText;
+    let laserHitboxes;
 
     const initialLives = 3;
     const respawnDelay = 2000;
     const fireRate = 100;
     const enemySpeed = 100;
     const specialEnemySpeed = 100;
+    const BBossSpeed = 50;
     const specialEnemyHealth = 6;
     const BossHealth = 18;
-    const BBossHealth = 100;
+    const BBossHealth = 40;
     const bossBulletSpeed = 200;
     const bossFireRate = 500;
     let background;
@@ -68,6 +71,7 @@ const Game = () => {
       this.load.image("specialEnemy2", "/specialEnemy2.png");
       this.load.image("enemyBullet", "/enemyBullet.png");
       this.load.image("Boss", "/boss.png");
+      this.load.image("point", "/point.png");
       this.load.image("BBoss", "/BBoss.png");
       this.load.image("bossBullet", "/bossBullet.png");
       this.load.spritesheet("boom", "/boom.png", {
@@ -77,6 +81,14 @@ const Game = () => {
       this.load.spritesheet("bossExplosion", "/bossExplosion.png", {
         frameWidth: 128,
         frameHeight: 128,
+      });
+      this.load.spritesheet("laserWarn", "/warn.png", {
+        frameWidth: 600,
+        frameHeight: 800,
+      });
+      this.load.spritesheet("laser", "/laser.png", {
+        frameWidth: 600,
+        frameHeight: 800,
       });
     }
 
@@ -106,21 +118,6 @@ const Game = () => {
         classType: Phaser.Physics.Arcade.Image,
       });
 
-      livesGroup = this.add.group({
-        key: "player",
-        repeat: initialLives - 1,
-        setXY: { x: 550, y: 50, stepX: -30 },
-      });
-
-      scoreText = this.add.text(16, 16, "Score: 0", {
-        fontSize: "32px",
-        fill: "#fff",
-      });
-
-      lives = initialLives;
-      playerImmune = false;
-      playerExploding = false;
-
       enemies = this.physics.add.group({
         defaultKey: "enemyy",
         maxSize: 30,
@@ -134,7 +131,7 @@ const Game = () => {
       });
 
       BBoss = this.physics.add.group({
-        defaultKey: "BBoss",
+        defaultKey: "BBoss1",
         maxSize: 1,
         classType: Phaser.Physics.Arcade.Image,
       });
@@ -175,6 +172,9 @@ const Game = () => {
         classType: Phaser.Physics.Arcade.Image,
       });
 
+      // Laser hitboxes group 생성
+      laserHitboxes = this.physics.add.group();
+
       this.physics.world.on("worldbounds", (body) => {
         if (body.gameObject) {
           body.gameObject.disableBody(true, true);
@@ -195,7 +195,7 @@ const Game = () => {
       });
 
       this.time.addEvent({
-        delay: 42000,
+        delay: 47000,
         callback: createBBoss,
         callbackScope: this,
       });
@@ -255,10 +255,47 @@ const Game = () => {
         repeat: 0,
         hideOnComplete: true,
       });
+
+      this.anims.create({
+        key: "laserWarn",
+        frames: this.anims.generateFrameNumbers("laserWarn", {
+          start: 0,
+          end: 7,
+        }),
+        frameRate: 8,
+        repeat: 0,
+        hideOnComplete: true,
+      });
+
+      this.anims.create({
+        key: "laser",
+        frames: this.anims.generateFrameNumbers("laser", {
+          start: 0,
+          end: 16,
+        }),
+        frameRate: 12,
+        repeat: 0,
+      });
+
+      livesGroup = this.add.group({
+        key: "player",
+        repeat: initialLives - 1,
+        setXY: { x: 550, y: 50, stepX: -30 },
+      });
+
+      scoreText = this.add.text(16, 16, "Score: 0", {
+        fontSize: "32px",
+        fill: "#fff",
+      });
+
+      lives = initialLives;
+      playerImmune = false;
+      playerExploding = false;
     }
 
     function update(time, delta) {
       background.tilePositionY -= 1;
+
       if (!playerExploding) {
         if (cursors.left.isDown) {
           player.setVelocityX(-200);
@@ -277,38 +314,107 @@ const Game = () => {
         }
       }
 
-      enemies.children.iterate((enemy) => {
-        if (enemy && enemy.active) {
-          enemy.setVelocityY(enemySpeed);
-        }
-      });
-
-      specialEnemies.children.iterate((specialEnemy) => {
-        if (specialEnemy && specialEnemy.active) {
-          if (specialEnemy.y >= 260) {
-            specialEnemy.setVelocityY(0);
-            if (time > specialEnemy.lastFired + 1000) {
-              fireEnemyBullet(specialEnemy);
-              specialEnemy.lastFired = time;
-            }
-          } else {
-            specialEnemy.setVelocityY(specialEnemySpeed);
+      if (enemies) {
+        enemies.children.iterate((enemy) => {
+          if (enemy && enemy.active) {
+            enemy.setVelocityY(enemySpeed);
           }
-        }
-      });
+        });
+      }
 
-      specialEnemies2.children.iterate((specialEnemy2) => {
-        if (specialEnemy2 && specialEnemy2.active) {
-          if (specialEnemy2.y >= 260) {
-            specialEnemy2.setVelocityY(0);
-            if (time > specialEnemy2.lastFired + 1000) {
-              fireBossBullet(specialEnemy2);
-              specialEnemy2.lastFired = time;
+      if (specialEnemies) {
+        specialEnemies.children.iterate((specialEnemy) => {
+          if (specialEnemy && specialEnemy.active) {
+            if (specialEnemy.y >= 260) {
+              specialEnemy.setVelocityY(0);
+              if (time > specialEnemy.lastFired + 1000) {
+                fireEnemyBullet(specialEnemy);
+                specialEnemy.lastFired = time;
+              }
+            } else {
+              specialEnemy.setVelocityY(specialEnemySpeed);
             }
-          } else {
-            specialEnemy2.setVelocityY(specialEnemySpeed);
           }
-        }
+        });
+      }
+
+      if (specialEnemies2) {
+        specialEnemies2.children.iterate((specialEnemy2) => {
+          if (specialEnemy2 && specialEnemy2.active) {
+            if (specialEnemy2.y >= 260) {
+              specialEnemy2.setVelocityY(0);
+              if (time > specialEnemy2.lastFired + 1000) {
+                fireBossBullet(specialEnemy2);
+                specialEnemy2.lastFired = time;
+              }
+            } else {
+              specialEnemy2.setVelocityY(specialEnemySpeed);
+            }
+          }
+        });
+      }
+
+      if (BBoss) {
+        BBoss.children.iterate((BBoss) => {
+          if (BBoss && BBoss.active) {
+            if (BBoss.y >= 260) {
+              BBoss.setVelocityY(0);
+              if (time > BBoss.lastFired + 1000) {
+                fireBossBullet(BBoss);
+                BBoss.lastFired = time;
+              }
+            } else {
+              BBoss.setVelocityY(BBossSpeed);
+            }
+          }
+        });
+      }
+    }
+
+    function fireBossLaser() {
+      // 레이저 경고 애니메이션
+      const warning = this.add.sprite(300, 400, "laserWarn").play("laserWarn");
+      warning.on("animationcomplete", () => {
+        warning.destroy();
+
+        // 레이저 생성
+        const laser = this.add.sprite(300, 400, "laser").play("laser");
+
+        // 레이저 충돌 체크
+        const hitbox1 = laserHitboxes.create(60, 400, "point");
+        const hitbox2 = laserHitboxes.create(180, 400, "point");
+        const hitbox3 = laserHitboxes.create(300, 400, "point");
+        const hitbox4 = laserHitboxes.create(420, 400, "point");
+        const hitbox5 = laserHitboxes.create(540, 400, "point");
+
+        this.physics.world.enable([
+          hitbox1,
+          hitbox2,
+          hitbox3,
+          hitbox4,
+          hitbox5,
+        ]);
+
+        hitbox1.body.setSize(61, 800).setAllowGravity(false);
+        hitbox2.body.setSize(61, 800).setAllowGravity(false);
+        hitbox3.body.setSize(61, 800).setAllowGravity(false);
+        hitbox4.body.setSize(61, 800).setAllowGravity(false);
+        hitbox5.body.setSize(61, 800).setAllowGravity(false);
+
+        laser.on("animationcomplete", () => {
+          laser.destroy();
+          hitbox1.destroy();
+          hitbox2.destroy();
+          hitbox3.destroy();
+          hitbox4.destroy();
+          hitbox5.destroy();
+        });
+
+        this.physics.add.overlap(player, laserHitboxes, (player, hitbox) => {
+          if (!playerImmune && !playerExploding) {
+            playerHit.call(this, player, hitbox);
+          }
+        });
       });
     }
 
@@ -361,15 +467,24 @@ const Game = () => {
     }
 
     function createBBoss() {
-      BBoss = this.physics.add.sprite(300, 130, "BBoss");
-      BBoss.setVelocityY(specialEnemySpeed);
-      BBoss.setCollideWorldBounds(true);
-      BBoss.body.onWorldBounds = true;
+      BBoss1 = this.physics.add.sprite(300, 130, "BBoss");
+      BBoss.add(BBoss1);
 
-      BBoss.health = BBossHealth;
-      BBoss.lastFired = 0;
+      if (BBoss1) {
+        BBoss1.setVelocityY(BBossSpeed);
+        BBoss1.setCollideWorldBounds(true);
+        BBoss1.body.onWorldBounds = true;
 
-      bossBullets.add(BBoss);
+        BBoss1.health = BBossHealth;
+        BBoss1.lastFired = 0;
+
+        BBoss1.laserTimer = this.time.addEvent({
+          delay: 10000,
+          callback: fireBossLaser,
+          callbackScope: this,
+          loop: true,
+        });
+      }
     }
 
     function createSpecialEnemy() {
@@ -468,16 +583,20 @@ const Game = () => {
       }
     }
 
-    function damageBBoss(bullet, boss) {
+    function damageBBoss(bullet, BBoss1) {
       bullet.disableBody(true, true);
-      boss.health -= 1;
-      if (boss.health <= 0) {
-        boss.disableBody(true, true);
+      BBoss1.health -= 1;
+      if (BBoss1.health <= 0) {
+        // 레이저 타이머 제거
+        if (BBoss1.laserTimer) {
+          BBoss1.laserTimer.remove();
+        }
+
+        BBoss1.disableBody(true, true);
         updateScore(2500);
-        boss.fireTimer.remove();
 
         const explosion = this.add
-          .sprite(boss.x, boss.y, "bossExplosion")
+          .sprite(BBoss1.x, BBoss1.y, "bossExplosion")
           .play("bossExplosion");
       }
     }
@@ -492,7 +611,6 @@ const Game = () => {
     function playerHit(player, bullet) {
       if (playerImmune || playerExploding) return;
 
-      bullet.disableBody(true, true);
       lives--;
 
       if (livesGroup.getChildren().length > 0) {
