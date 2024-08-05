@@ -47,6 +47,7 @@ const Game = () => {
     let playerExploding;
     let score = 0;
     let scoreText;
+    let laserHitboxes;
 
     const initialLives = 3;
     const respawnDelay = 2000;
@@ -56,7 +57,7 @@ const Game = () => {
     const BBossSpeed = 50;
     const specialEnemyHealth = 6;
     const BossHealth = 18;
-    const BBossHealth = 10;
+    const BBossHealth = 40;
     const bossBulletSpeed = 200;
     const bossFireRate = 500;
     let background;
@@ -70,6 +71,7 @@ const Game = () => {
       this.load.image("specialEnemy2", "/specialEnemy2.png");
       this.load.image("enemyBullet", "/enemyBullet.png");
       this.load.image("Boss", "/boss.png");
+      this.load.image("point", "/point.png");
       this.load.image("BBoss", "/BBoss.png");
       this.load.image("bossBullet", "/bossBullet.png");
       this.load.spritesheet("boom", "/boom.png", {
@@ -115,21 +117,6 @@ const Game = () => {
         visible: false,
         classType: Phaser.Physics.Arcade.Image,
       });
-
-      livesGroup = this.add.group({
-        key: "player",
-        repeat: initialLives - 1,
-        setXY: { x: 550, y: 50, stepX: -30 },
-      });
-
-      scoreText = this.add.text(16, 16, "Score: 0", {
-        fontSize: "32px",
-        fill: "#fff",
-      });
-
-      lives = initialLives;
-      playerImmune = false;
-      playerExploding = false;
 
       enemies = this.physics.add.group({
         defaultKey: "enemyy",
@@ -185,6 +172,9 @@ const Game = () => {
         classType: Phaser.Physics.Arcade.Image,
       });
 
+      // Laser hitboxes group 생성
+      laserHitboxes = this.physics.add.group();
+
       this.physics.world.on("worldbounds", (body) => {
         if (body.gameObject) {
           body.gameObject.disableBody(true, true);
@@ -205,7 +195,7 @@ const Game = () => {
       });
 
       this.time.addEvent({
-        delay: 2000,
+        delay: 47000,
         callback: createBBoss,
         callbackScope: this,
       });
@@ -281,12 +271,26 @@ const Game = () => {
         key: "laser",
         frames: this.anims.generateFrameNumbers("laser", {
           start: 0,
-          end: 30,
+          end: 16,
         }),
         frameRate: 12,
         repeat: 0,
-        hideOnComplete: true,
       });
+
+      livesGroup = this.add.group({
+        key: "player",
+        repeat: initialLives - 1,
+        setXY: { x: 550, y: 50, stepX: -30 },
+      });
+
+      scoreText = this.add.text(16, 16, "Score: 0", {
+        fontSize: "32px",
+        fill: "#fff",
+      });
+
+      lives = initialLives;
+      playerImmune = false;
+      playerExploding = false;
     }
 
     function update(time, delta) {
@@ -368,36 +372,49 @@ const Game = () => {
     }
 
     function fireBossLaser() {
-      // 경고 애니메이션 표시
+      // 레이저 경고 애니메이션
       const warning = this.add.sprite(300, 400, "laserWarn").play("laserWarn");
+      warning.on("animationcomplete", () => {
+        warning.destroy();
 
-      // 레이저 공격 지연
-      this.time.addEvent({
-        delay: 2000,
-        callback: () => {
-          warning.destroy();
+        // 레이저 생성
+        const laser = this.add.sprite(300, 400, "laser").play("laser");
 
-          // 레이저 공격 생성
-          const laser = this.add.sprite(300, 400, "laser").play("laser");
+        // 레이저 충돌 체크
+        const hitbox1 = laserHitboxes.create(60, 400, "point");
+        const hitbox2 = laserHitboxes.create(180, 400, "point");
+        const hitbox3 = laserHitboxes.create(300, 400, "point");
+        const hitbox4 = laserHitboxes.create(420, 400, "point");
+        const hitbox5 = laserHitboxes.create(540, 400, "point");
 
-          // 플레이어와 충돌 체크
-          this.physics.world.enable(laser);
-          laser.body.setSize(32, 800).setAllowGravity(false);
+        this.physics.world.enable([
+          hitbox1,
+          hitbox2,
+          hitbox3,
+          hitbox4,
+          hitbox5,
+        ]);
 
-          this.physics.add.overlap(player, laser, (player, laser) => {
-            if (!playerImmune && !playerExploding) {
-              playerHit(player, laser);
-            }
-          });
+        hitbox1.body.setSize(61, 800).setAllowGravity(false);
+        hitbox2.body.setSize(61, 800).setAllowGravity(false);
+        hitbox3.body.setSize(61, 800).setAllowGravity(false);
+        hitbox4.body.setSize(61, 800).setAllowGravity(false);
+        hitbox5.body.setSize(61, 800).setAllowGravity(false);
 
-          // 일정 시간 후 레이저 제거
-          this.time.addEvent({
-            delay: 750,
-            callback: () => {
-              laser.destroy();
-            },
-          });
-        },
+        laser.on("animationcomplete", () => {
+          laser.destroy();
+          hitbox1.destroy();
+          hitbox2.destroy();
+          hitbox3.destroy();
+          hitbox4.destroy();
+          hitbox5.destroy();
+        });
+
+        this.physics.add.overlap(player, laserHitboxes, (player, hitbox) => {
+          if (!playerImmune && !playerExploding) {
+            playerHit.call(this, player, hitbox);
+          }
+        });
       });
     }
 
@@ -461,7 +478,7 @@ const Game = () => {
         BBoss1.health = BBossHealth;
         BBoss1.lastFired = 0;
 
-        BBoss.laserTimer = this.time.addEvent({
+        BBoss1.laserTimer = this.time.addEvent({
           delay: 10000,
           callback: fireBossLaser,
           callbackScope: this,
@@ -570,12 +587,17 @@ const Game = () => {
       bullet.disableBody(true, true);
       BBoss1.health -= 1;
       if (BBoss1.health <= 0) {
+        // 레이저 타이머 제거
+        if (BBoss1.laserTimer) {
+          BBoss1.laserTimer.remove();
+        }
+
         BBoss1.disableBody(true, true);
         updateScore(2500);
 
         const explosion = this.add
-          .sprite(BBoss1.x, BBoss1.y, "laserWarn")
-          .play("laserWarn");
+          .sprite(BBoss1.x, BBoss1.y, "bossExplosion")
+          .play("bossExplosion");
       }
     }
 
@@ -589,7 +611,6 @@ const Game = () => {
     function playerHit(player, bullet) {
       if (playerImmune || playerExploding) return;
 
-      bullet.disableBody(true, true);
       lives--;
 
       if (livesGroup.getChildren().length > 0) {
