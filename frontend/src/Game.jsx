@@ -40,6 +40,7 @@ const Game = () => {
     let lastFired = 0;
     let boss;
     let BBoss;
+    let BBoss1;
     let lives;
     let livesGroup;
     let playerImmune;
@@ -52,9 +53,10 @@ const Game = () => {
     const fireRate = 100;
     const enemySpeed = 100;
     const specialEnemySpeed = 100;
+    const BBossSpeed = 50;
     const specialEnemyHealth = 6;
     const BossHealth = 18;
-    const BBossHealth = 100;
+    const BBossHealth = 10;
     const bossBulletSpeed = 200;
     const bossFireRate = 500;
     let background;
@@ -77,6 +79,14 @@ const Game = () => {
       this.load.spritesheet("bossExplosion", "/bossExplosion.png", {
         frameWidth: 128,
         frameHeight: 128,
+      });
+      this.load.spritesheet("laserWarn", "/warn.png", {
+        frameWidth: 600,
+        frameHeight: 800,
+      });
+      this.load.spritesheet("laser", "/laser.png", {
+        frameWidth: 600,
+        frameHeight: 800,
       });
     }
 
@@ -134,7 +144,7 @@ const Game = () => {
       });
 
       BBoss = this.physics.add.group({
-        defaultKey: "BBoss",
+        defaultKey: "BBoss1",
         maxSize: 1,
         classType: Phaser.Physics.Arcade.Image,
       });
@@ -195,7 +205,7 @@ const Game = () => {
       });
 
       this.time.addEvent({
-        delay: 42000,
+        delay: 2000,
         callback: createBBoss,
         callbackScope: this,
       });
@@ -255,10 +265,33 @@ const Game = () => {
         repeat: 0,
         hideOnComplete: true,
       });
+
+      this.anims.create({
+        key: "laserWarn",
+        frames: this.anims.generateFrameNumbers("laserWarn", {
+          start: 0,
+          end: 7,
+        }),
+        frameRate: 8,
+        repeat: 0,
+        hideOnComplete: true,
+      });
+
+      this.anims.create({
+        key: "laser",
+        frames: this.anims.generateFrameNumbers("laser", {
+          start: 0,
+          end: 30,
+        }),
+        frameRate: 12,
+        repeat: 0,
+        hideOnComplete: true,
+      });
     }
 
     function update(time, delta) {
       background.tilePositionY -= 1;
+
       if (!playerExploding) {
         if (cursors.left.isDown) {
           player.setVelocityX(-200);
@@ -277,38 +310,94 @@ const Game = () => {
         }
       }
 
-      enemies.children.iterate((enemy) => {
-        if (enemy && enemy.active) {
-          enemy.setVelocityY(enemySpeed);
-        }
-      });
-
-      specialEnemies.children.iterate((specialEnemy) => {
-        if (specialEnemy && specialEnemy.active) {
-          if (specialEnemy.y >= 260) {
-            specialEnemy.setVelocityY(0);
-            if (time > specialEnemy.lastFired + 1000) {
-              fireEnemyBullet(specialEnemy);
-              specialEnemy.lastFired = time;
-            }
-          } else {
-            specialEnemy.setVelocityY(specialEnemySpeed);
+      if (enemies) {
+        enemies.children.iterate((enemy) => {
+          if (enemy && enemy.active) {
+            enemy.setVelocityY(enemySpeed);
           }
-        }
-      });
+        });
+      }
 
-      specialEnemies2.children.iterate((specialEnemy2) => {
-        if (specialEnemy2 && specialEnemy2.active) {
-          if (specialEnemy2.y >= 260) {
-            specialEnemy2.setVelocityY(0);
-            if (time > specialEnemy2.lastFired + 1000) {
-              fireBossBullet(specialEnemy2);
-              specialEnemy2.lastFired = time;
+      if (specialEnemies) {
+        specialEnemies.children.iterate((specialEnemy) => {
+          if (specialEnemy && specialEnemy.active) {
+            if (specialEnemy.y >= 260) {
+              specialEnemy.setVelocityY(0);
+              if (time > specialEnemy.lastFired + 1000) {
+                fireEnemyBullet(specialEnemy);
+                specialEnemy.lastFired = time;
+              }
+            } else {
+              specialEnemy.setVelocityY(specialEnemySpeed);
             }
-          } else {
-            specialEnemy2.setVelocityY(specialEnemySpeed);
           }
-        }
+        });
+      }
+
+      if (specialEnemies2) {
+        specialEnemies2.children.iterate((specialEnemy2) => {
+          if (specialEnemy2 && specialEnemy2.active) {
+            if (specialEnemy2.y >= 260) {
+              specialEnemy2.setVelocityY(0);
+              if (time > specialEnemy2.lastFired + 1000) {
+                fireBossBullet(specialEnemy2);
+                specialEnemy2.lastFired = time;
+              }
+            } else {
+              specialEnemy2.setVelocityY(specialEnemySpeed);
+            }
+          }
+        });
+      }
+
+      if (BBoss) {
+        BBoss.children.iterate((BBoss) => {
+          if (BBoss && BBoss.active) {
+            if (BBoss.y >= 260) {
+              BBoss.setVelocityY(0);
+              if (time > BBoss.lastFired + 1000) {
+                fireBossBullet(BBoss);
+                BBoss.lastFired = time;
+              }
+            } else {
+              BBoss.setVelocityY(BBossSpeed);
+            }
+          }
+        });
+      }
+    }
+
+    function fireBossLaser() {
+      // 경고 애니메이션 표시
+      const warning = this.add.sprite(300, 400, "laserWarn").play("laserWarn");
+
+      // 레이저 공격 지연
+      this.time.addEvent({
+        delay: 2000,
+        callback: () => {
+          warning.destroy();
+
+          // 레이저 공격 생성
+          const laser = this.add.sprite(300, 400, "laser").play("laser");
+
+          // 플레이어와 충돌 체크
+          this.physics.world.enable(laser);
+          laser.body.setSize(32, 800).setAllowGravity(false);
+
+          this.physics.add.overlap(player, laser, (player, laser) => {
+            if (!playerImmune && !playerExploding) {
+              playerHit(player, laser);
+            }
+          });
+
+          // 일정 시간 후 레이저 제거
+          this.time.addEvent({
+            delay: 750,
+            callback: () => {
+              laser.destroy();
+            },
+          });
+        },
       });
     }
 
@@ -361,15 +450,24 @@ const Game = () => {
     }
 
     function createBBoss() {
-      BBoss = this.physics.add.sprite(300, 130, "BBoss");
-      BBoss.setVelocityY(specialEnemySpeed);
-      BBoss.setCollideWorldBounds(true);
-      BBoss.body.onWorldBounds = true;
+      BBoss1 = this.physics.add.sprite(300, 130, "BBoss");
+      BBoss.add(BBoss1);
 
-      BBoss.health = BBossHealth;
-      BBoss.lastFired = 0;
+      if (BBoss1) {
+        BBoss1.setVelocityY(BBossSpeed);
+        BBoss1.setCollideWorldBounds(true);
+        BBoss1.body.onWorldBounds = true;
 
-      bossBullets.add(BBoss);
+        BBoss1.health = BBossHealth;
+        BBoss1.lastFired = 0;
+
+        BBoss.laserTimer = this.time.addEvent({
+          delay: 10000,
+          callback: fireBossLaser,
+          callbackScope: this,
+          loop: true,
+        });
+      }
     }
 
     function createSpecialEnemy() {
@@ -468,17 +566,16 @@ const Game = () => {
       }
     }
 
-    function damageBBoss(bullet, boss) {
+    function damageBBoss(bullet, BBoss1) {
       bullet.disableBody(true, true);
-      boss.health -= 1;
-      if (boss.health <= 0) {
-        boss.disableBody(true, true);
+      BBoss1.health -= 1;
+      if (BBoss1.health <= 0) {
+        BBoss1.disableBody(true, true);
         updateScore(2500);
-        boss.fireTimer.remove();
 
         const explosion = this.add
-          .sprite(boss.x, boss.y, "bossExplosion")
-          .play("bossExplosion");
+          .sprite(BBoss1.x, BBoss1.y, "laserWarn")
+          .play("laserWarn");
       }
     }
 
